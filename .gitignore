@@ -1,0 +1,11 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+vis2*
+__*
+.python-version
+features_color*
+shape_predictor*
+share*
+pyvenv*
+per_frame_features*
+lib*
+bin*
