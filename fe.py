@@ -1,6 +1,7 @@
 #ovo je feature extractor zato se zove fe
 
 import os
+import math
 from cv2.typing import MatLike
 import numpy as np
 import pandas as pd
@@ -114,7 +115,7 @@ def get_dct_features(frame, mask):
     return {f"dct_{i}": dct[i] for i in range(128)}
 
 
-def process_frame(frame_crop, rectangle):
+def process_frame(frame_crop, rectangle, roi_w, roi_h):
     y_crop = cv.cvtColor(frame_crop, cv.COLOR_BGR2YCrCb)
     hsv_crop = cv.cvtColor(frame_crop, cv.COLOR_BGR2HSV)
     rgb_crop = cv.cvtColor(frame_crop, cv.COLOR_BGR2RGB)
@@ -150,7 +151,7 @@ def process_frame(frame_crop, rectangle):
         return
     
     largest = max(c, key=cv.contourArea)
-    area_threshold = 0.2*cv.contourArea(largest)
+    area_threshold = 0.1*cv.contourArea(largest)
     valid = [cs for cs in c if cv.contourArea(cs) >= area_threshold]
 
     cntr = np.vstack(valid)
@@ -164,8 +165,9 @@ def process_frame(frame_crop, rectangle):
     final_mask = clean_mask(final_mask)
 
     c, _ = cv.findContours(final_mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+
     largest = max(c, key=cv.contourArea)
-    area_threshold = 0.2*cv.contourArea(largest)
+    area_threshold = 0.1*cv.contourArea(largest)
     valid = [cs for cs in c if cv.contourArea(cs) >= area_threshold]
 
     cntr = np.vstack(valid)
@@ -174,17 +176,20 @@ def process_frame(frame_crop, rectangle):
     points = hull.reshape(-1, 2)
     xs = points[:, 0]
     ys = points[:, 1]
+
     left_x = np.min(xs)
     right_x = np.max(xs)
+
     left_y = np.mean(ys[xs == left_x])
     right_y = np.mean(ys[xs == right_x])
+
     top_y = np.min(ys)
     bottom_y = np.max(ys)
-    width = right_x - left_x
 
+    width = right_x - left_x
     height = bottom_y - top_y
 
-    area = cv.contourArea(hull)
+    hull_area = cv.contourArea(hull)
 
     aspect_ratio = width/height if height > 0 else 0
 
@@ -193,10 +198,8 @@ def process_frame(frame_crop, rectangle):
             right_x - left_x
         ))
 
-    (cx, cy), (MA, ma), ellipse_angle = cv.fitEllipse(cntr)
-    ellipse_ratio = MA / (ma + 1e-6)
-
-    corner_height_diff = abs(left_y - right_y) / width if width > 0 else 0
+    (cx, cy), (MA, ma), ellipse_angle = cv.fitEllipse(hull)
+    ellipse_area = math.pi / 4 * MA * ma
 
     M = cv.moments(hull)
     cy = M['m01'] / M['m00']
@@ -204,23 +207,35 @@ def process_frame(frame_crop, rectangle):
     upper_height = (cy - top_y) / height
     lower_height = (bottom_y - cy) / height
 
+    obim = cv.arcLength(hull, True)
+    okruglost = (4 * math.pi * hull_area) / (obim ** 2)
+
     feature_dict = {
-            "height": height / width,
-            "area": area / (width ** 2),
+            "width": width / roi_w,
+            "height": height / roi_h,
+            "hull_area": hull_area / (width ** 2),
             "aspect_ratio": aspect_ratio,
             "angle": angle,
-            "ellipse_ratio": ellipse_ratio,
-            "corner_height_diff": corner_height_diff,
+            "ellipse_area": ellipse_area / (width ** 2),
+            "solidity" : ellipse_area / hull_area,
             "upper_lip_height": upper_height,
-            "lower_lip_height": lower_height
+            "lower_lip_height": lower_height,
+            "circularity": okruglost,
+            
+            #ovo je samo ako mi kasnije bude bilo potrebno da izvlacim 
+            #nesto iz cistog videa
+            "raw_height": height,
+            "raw_width": width,
+            "x": left_x,
+            "y": top_y
             }
     
-    y = top_y
-    x = left_x
-    for_dct = frame_crop[y:y+int(height), x:x+int(width)]
-    mask_for_dct = final_mask[y:y+int(height), x:x+int(width)]
-    dct_features = get_dct_features(for_dct, mask_for_dct)
-    return { **feature_dict, **dct_features }
+    #y = top_y
+    #x = left_x
+    #for_dct = frame_crop[y:y+int(height), x:x+int(width)]
+    #mask_for_dct = final_mask[y:y+int(height), x:x+int(width)]
+    #dct_features = get_dct_features(for_dct, mask_for_dct)
+    return feature_dict
 
 def process_video(video_path, roi_path):
     video = cv.VideoCapture(video_path)
@@ -238,15 +253,15 @@ def process_video(video_path, roi_path):
         int(row['x']), int(row['y']), int(row['width']), int(row['height'])
         
         frame_crop = frame[roi_y:roi_y+roi_h, roi_x:roi_x+roi_w]
-        frame_crop = cv.medianBlur(frame_crop, 5)
+        frame_crop = cv.medianBlur(frame_crop, 3)
             
         idx += 1
 
         grayscale = cv.cvtColor(frame_crop, cv.COLOR_BGR2GRAY)
-        start_x = int(0.14*roi_w)
-        start_y = int(0.14*roi_h)
-        end_x = roi_w - int(0.14*roi_w)
-        end_y = roi_h - int(0.14*roi_h)
+        start_x = int(0.15*roi_w)
+        start_y = int(0.15*roi_h)
+        end_x = roi_w - int(0.15*roi_w)
+        end_y = roi_h - int(0.15*roi_h)
         rectangle_mask = cv.rectangle(
                 np.zeros_like(grayscale),
                 (start_x, start_y),
@@ -254,7 +269,7 @@ def process_video(video_path, roi_path):
                 (255, 255, 255),
                 cv.FILLED)
         
-        features = process_frame(frame_crop, rectangle_mask)
+        features = process_frame(frame_crop, rectangle_mask, roi_w, roi_h)
         feature_frame_list.append(features)
 
     video.release()
