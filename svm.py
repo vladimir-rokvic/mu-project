@@ -9,14 +9,14 @@ import numpy as np
 import pandas as pd
 
 SVM_PARAMS = {
-        "svm__C": [0.01, 0.1, 1.0, 10, 100],
+        "svm__C": [0.1, 1.0, 10, 100],
         "svm__kernel": ['linear', 'rbf'],
         "svm__gamma": ['scale', 'auto', 0.1],
         }
 
 test_speakers = [4, 8, 14, 26, 28]
 
-pca_df = pd.read_csv('pca_features_3.csv')
+pca_df = pd.read_csv('pca_features_2.csv')
 #of_df = pd.read_csv('optical_flow_2.csv')
 #of_df = of_df.drop(["y","spk"], axis=1)
 #
@@ -48,11 +48,16 @@ pca_cols = [c for c in pca_df.columns if c not in ["y", "spk"]]
 dwt_df = pd.read_csv('dwt_features.csv')
 dwt_df = dwt_df.drop(["y", "spk"], axis=1)
 
-df = pd.concat([dwt_df, pca_df], axis=1)
+df_timed = pd.read_csv('geometric_timed.csv')
+df_timed = df_timed.drop(["y", "spk"], axis=1)
+
+df = pd.concat([df_timed, pca_df], axis=1)
 
 dwt_cols = [c for c in dwt_df.columns if c not in ["y", "spk"]]
 
-feat_cols = pca_cols + dwt_cols
+timed_cols = [c for c in df_timed.columns if c not in ["y", "spk"]]
+
+feat_cols = pca_cols + timed_cols
 
 '''
 transformer = ColumnTransformer([
@@ -79,25 +84,27 @@ y_test = df.loc[df["spk"].isin(test_speakers), "y"].values
 #of - 0.9 lda 29
 #pca, of - 174 lda 29
 #with 30 comps
-pipe = Pipeline([
-    #("transformer", transformer),
-    ("scale", StandardScaler()),
-    ("pca", PCA(n_components=0.99, whiten=True)),
-    ("lda", LinearDiscriminantAnalysis(n_components=29)),
-    ("svm", SVC())
-    ])
-
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-search = GridSearchCV(
-        pipe,
-        SVM_PARAMS,
-        scoring="accuracy",
-        cv=cv,
-        n_jobs=-1
-    )
-search.fit(X_train, y_train)
-
-print(f"Best params:   {search.best_params_}")
-print(f"Best CV score: {search.best_score_*100:.1f}%")
-print(f"Test score:    {search.score(X_test, y_test)*100:.1f}%")
+for n in [0.98]:
+    pipe = Pipeline([
+        #("transformer", transformer),
+        ("scale", StandardScaler()),
+        ("pca", PCA(n_components=n, whiten=True)),
+        ("lda", LinearDiscriminantAnalysis(n_components=29)),
+        ("svm", SVC())
+        ])
+    
+    search = GridSearchCV(
+            pipe,
+            SVM_PARAMS,
+            scoring="accuracy",
+            cv=cv,
+            n_jobs=-1
+        )
+    search.fit(X_train, y_train)
+    
+    print("\nPCA:", n)
+    print(f"Best params:   {search.best_params_}")
+    print(f"Best CV score: {search.best_score_*100:.1f}%")
+    print(f"Test score:    {search.score(X_test, y_test)*100:.1f}%")

@@ -125,14 +125,47 @@ def only_pca(cv, n):
     print(f"\nTrain accuracy: {train_acc:.4f}")
     print(f"Test accuracy:  {test_acc:.4f}")
 
+def pca_lda(cv, n):
+    pipe = Pipeline([
+        ("scaler", StandardScaler()),
+        ("pca", PCA(n_components=n)),
+        ("lda", LinearDiscriminantAnalysis()),
+        ("rf", RandomForestClassifier(random_state=42))
+        ])
+    
+    search = RandomizedSearchCV(
+        pipe,
+        RF_PARAM_DIST,
+        n_iter=30,
+        cv=cv,
+        scoring="accuracy",
+        random_state=42,
+        n_jobs=-1,
+        verbose=1
+    )
+    search.fit(X_train, y_train)
+    
+    print("\nPCA:", n)
+    print(f"Best parameters: {search.best_params_}")
+    print(f"Best CV accuracy: {search.best_score_:.4f}")
+    
+    best_rf = search.best_estimator_
+    y_pred  = best_rf.predict(X_test)
+    train_acc = accuracy_score(y_train, best_rf.predict(X_train))
+    test_acc  = accuracy_score(y_test, y_pred)
+    
+    print(f"\nTrain accuracy: {train_acc:.4f}")
+    print(f"Test accuracy:  {test_acc:.4f}")
 test_speakers = [4, 8, 14, 26, 28]
 
-#df_agregated = pd.read_csv('geometric_agregated.csv')
+df_agregated = pd.read_csv('geometric_agregated.csv')
 df_interp = pd.read_csv('geometric_interp.csv')
-#df_timed = pd.read_csv('geometric_timed.csv')
-#df_timed = df_timed.drop(["y", "spk"], axis=1)
+df_interp = df_interp.drop(["y", "spk"], axis=1)
+df_timed = pd.read_csv('geometric_timed.csv')
+df_timed = df_timed.drop(["y", "spk"], axis=1)
 
-df = df_interp
+df = pd.concat([df_interp, df_agregated, df_timed], axis=1)
+
 
 X_train = df.loc[~df["spk"].isin(test_speakers)]
 y_train = X_train["y"]
@@ -155,5 +188,8 @@ only_lda(cv)
 
 for n in [0.8, 0.85, 0.9, 0.95, 0.99]:
     only_pca(cv, n)
+
+for n in [0.8, 0.85, 0.9, 0.95, 0.99]:
+    pca_lda(cv, n)
 
 #print_feature_importance(best_rf.named_steps['rf'], X_train)

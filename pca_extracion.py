@@ -8,7 +8,7 @@ VIDEO_DIR = "./iseckane_reci_masked/videos/"
 ROI_DIR = "./iseckane_reci_masked/roi/"
 
 CROP_SIZE = (64, 32)
-N_COMPONENTS = 30
+N_COMPONENTS = 20
 N_TIMESTEPS = 20
 test_speakers = [4, 8, 14, 26, 28]
 
@@ -44,12 +44,20 @@ def get_row(pca, video_path, roi_path, label, spk):
     frames = load_frames(video_path, roi_path)
     frames = pca.transform(frames)
 
+    delta = np.diff(frames, axis=0)
+    delta = np.vstack([delta[0], delta])
+
+    delta2 = np.diff(delta, axis=0)
+    delta2 = np.vstack([delta2[0], delta2])
+
+    features = np.concatenate([frames, delta, delta2], axis=1)
+
     ret = {}
 
-    for i in range(N_COMPONENTS):
-        f_old = frames[:, i]
+    for i in range(features.shape[1]):
+        f_old = features[:, i]
 
-        x_old = np.linspace(0, 1, len(frames))
+        x_old = np.linspace(0, 1, len(features))
         x_new = np.linspace(0, 1, N_TIMESTEPS)
         f_new = np.interp(x_new, x_old, f_old)
 
