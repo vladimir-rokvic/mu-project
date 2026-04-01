@@ -12,7 +12,6 @@ KNN_PARAMS = {
         "knn__n_neighbors": [5, 10, 15, 25],
         "knn__weights": ['uniform', 'distance'],
         "knn__metric": ['euclidean', 'manhattan', 'cosine'],
-        "knn__p": [1, 2, 3]
         }
 
 def no_pca_lda(cv):
