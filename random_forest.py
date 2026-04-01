@@ -3,10 +3,9 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, GridSearchCV
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.pipeline import Pipeline
 
@@ -156,6 +155,7 @@ def pca_lda(cv, n):
     
     print(f"\nTrain accuracy: {train_acc:.4f}")
     print(f"Test accuracy:  {test_acc:.4f}")
+
 test_speakers = [4, 8, 14, 26, 28]
 
 df_agregated = pd.read_csv('geometric_agregated.csv')
@@ -186,10 +186,10 @@ cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 no_pca_lda(cv)
 only_lda(cv)
 
-for n in [0.8, 0.85, 0.9, 0.95, 0.99]:
+for n in [0.8, 0.85, 0.9, 0.95, 0.98,  0.99]:
     only_pca(cv, n)
 
-for n in [0.8, 0.85, 0.9, 0.95, 0.99]:
+for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
     pca_lda(cv, n)
 
 #print_feature_importance(best_rf.named_steps['rf'], X_train)

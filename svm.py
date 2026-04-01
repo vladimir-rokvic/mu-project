@@ -4,7 +4,7 @@ from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.compose import ColumnTransformer
+from sklearn.metrics import accuracy_score
 import numpy as np
 import pandas as pd
 
@@ -14,84 +14,65 @@ SVM_PARAMS = {
         "svm__gamma": ['scale', 'auto', 0.1],
         }
 
-test_speakers = [4, 8, 14, 26, 28]
-
-pca_df = pd.read_csv('pca_features_2.csv')
-#of_df = pd.read_csv('optical_flow_2.csv')
-#of_df = of_df.drop(["y","spk"], axis=1)
-#
-#df = pd.concat([pca_df, of_df], axis=1)
-
-#mag_df = pd.read_csv('mag_features.csv')
-#ang_df = pd.read_csv('ang_features.csv')
-#
-#mag_df = mag_df.drop(["y","spk"], axis=1)
-#ang_df = ang_df.drop(["y","spk"], axis=1)
-
-#pca_of_df = pd.read_csv('pca_of_1.csv')
-#pca_of_df = pca_of_df.drop(["y","spk"], axis=1)
-
-#pca_of_df = pd.concat([mag_df, ang_df], axis=1)
-#
-#df = pd.concat([pca_df, pca_of_df], axis=1)
-#
-#of_cols = [c for c in pca_of_df.columns if c not in ["y", "spk"]]
-#
-#mag_cols = [c for c in mag_df.columns if c not in ["y", "spk"]]
-#ang_cols = [c for c in ang_df.columns if c not in ["y", "spk"]]
-#
-pca_cols = [c for c in pca_df.columns if c not in ["y", "spk"]]
-#
-#df = pca_df
-#
-
-dwt_df = pd.read_csv('dwt_features.csv')
-dwt_df = dwt_df.drop(["y", "spk"], axis=1)
-
-df_timed = pd.read_csv('geometric_timed.csv')
-df_timed = df_timed.drop(["y", "spk"], axis=1)
-
-df = pd.concat([df_timed, pca_df], axis=1)
-
-dwt_cols = [c for c in dwt_df.columns if c not in ["y", "spk"]]
-
-timed_cols = [c for c in df_timed.columns if c not in ["y", "spk"]]
-
-feat_cols = pca_cols + timed_cols
-
-'''
-transformer = ColumnTransformer([
-    ("pca", Pipeline([
-        #("scale", StandardScaler()),
-        ("pcaa", PCA(n_components=75)),
-        #("ldaa", LinearDiscriminantAnalysis(n_components=29))
-        ]), pca_cols),
-    ("mag", Pipeline([
-        #("scale2", StandardScaler()),
-        ("pcaa2", PCA(n_components=75)),
-        #("ldaa2", LinearDiscriminantAnalysis(n_components=29))
-        ]), dwt_cols)
-    ])
-#'''
-
-X_train = df.loc[~df["spk"].isin(test_speakers), feat_cols]
-y_train = df.loc[~df["spk"].isin(test_speakers), "y"].values
-
-X_test = df.loc[df["spk"].isin(test_speakers), feat_cols]
-y_test = df.loc[df["spk"].isin(test_speakers), "y"].values
-
-#pca - 0.98 lda 29
-#of - 0.9 lda 29
-#pca, of - 174 lda 29
-#with 30 comps
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-
-for n in [0.98]:
+def no_pca_lda(cv):
     pipe = Pipeline([
-        #("transformer", transformer),
+        ("scale", StandardScaler()),
+        ("svm", SVC())
+        ])
+    
+    search = GridSearchCV(
+            pipe,
+            SVM_PARAMS,
+            scoring="accuracy",
+            cv=cv,
+            n_jobs=-1
+        )
+    search.fit(X_train, y_train)
+    
+    print("\nSamo StandardScaler")
+    print(f"Best parameters: {search.best_params_}")
+    print(f"Best CV accuracy: {search.best_score_:.4f}")
+    
+    best_rf = search.best_estimator_
+    y_pred  = best_rf.predict(X_test)
+    train_acc = accuracy_score(y_train, best_rf.predict(X_train))
+    test_acc  = accuracy_score(y_test, y_pred)
+    
+    print(f"\nTrain accuracy: {train_acc:.4f}")
+    print(f"Test accuracy:  {test_acc:.4f}")
+
+def only_lda(cv):
+    pipe = Pipeline([
+        ("scale", StandardScaler()),
+        ("lda", LinearDiscriminantAnalysis()),
+        ("svm", SVC())
+        ])
+    
+    search = GridSearchCV(
+            pipe,
+            SVM_PARAMS,
+            scoring="accuracy",
+            cv=cv,
+            n_jobs=-1
+        )
+    search.fit(X_train, y_train)
+    
+    print("\nSamo LDA")
+    print(f"Best parameters: {search.best_params_}")
+    print(f"Best CV accuracy: {search.best_score_:.4f}")
+    
+    best_rf = search.best_estimator_
+    y_pred  = best_rf.predict(X_test)
+    train_acc = accuracy_score(y_train, best_rf.predict(X_train))
+    test_acc  = accuracy_score(y_test, y_pred)
+    
+    print(f"\nTrain accuracy: {train_acc:.4f}")
+    print(f"Test accuracy:  {test_acc:.4f}")
+
+def only_pca(cv, n):
+    pipe = Pipeline([
         ("scale", StandardScaler()),
         ("pca", PCA(n_components=n, whiten=True)),
-        ("lda", LinearDiscriminantAnalysis(n_components=29)),
         ("svm", SVC())
         ])
     
@@ -105,6 +86,76 @@ for n in [0.98]:
     search.fit(X_train, y_train)
     
     print("\nPCA:", n)
-    print(f"Best params:   {search.best_params_}")
-    print(f"Best CV score: {search.best_score_*100:.1f}%")
-    print(f"Test score:    {search.score(X_test, y_test)*100:.1f}%")
+    print(f"Best parameters: {search.best_params_}")
+    print(f"Best CV accuracy: {search.best_score_:.4f}")
+    
+    best_rf = search.best_estimator_
+    y_pred  = best_rf.predict(X_test)
+    train_acc = accuracy_score(y_train, best_rf.predict(X_train))
+    test_acc  = accuracy_score(y_test, y_pred)
+    
+    print(f"\nTrain accuracy: {train_acc:.4f}")
+    print(f"Test accuracy:  {test_acc:.4f}")
+
+def pca_lda(cv, n):
+    pipe = Pipeline([
+        ("scale", StandardScaler()),
+        ("pca", PCA(n_components=n, whiten=True)),
+        ("lda", LinearDiscriminantAnalysis()),
+        ("svm", SVC())
+        ])
+    
+    search = GridSearchCV(
+            pipe,
+            SVM_PARAMS,
+            scoring="accuracy",
+            cv=cv,
+            n_jobs=-1
+        )
+    search.fit(X_train, y_train)
+    
+    print("\nPCA:", n)
+    print(f"Best parameters: {search.best_params_}")
+    print(f"Best CV accuracy: {search.best_score_:.4f}")
+    
+    best_rf = search.best_estimator_
+    y_pred  = best_rf.predict(X_test)
+    train_acc = accuracy_score(y_train, best_rf.predict(X_train))
+    test_acc  = accuracy_score(y_test, y_pred)
+    
+    print(f"\nTrain accuracy: {train_acc:.4f}")
+    print(f"Test accuracy:  {test_acc:.4f}")
+
+test_speakers = [4, 8, 14, 26, 28]
+
+df_timed = pd.read_csv('geometric_timed.csv')
+df_timed = df_timed.drop(["y", "spk"], axis=1)
+
+pca_df = pd.read_csv('features_pca.csv')
+
+df = pd.concat([df_timed, pca_df], axis=1)
+
+X_train = df.loc[~df["spk"].isin(test_speakers)]
+y_train = X_train["y"]
+X_train = X_train.drop(["spk", "y"], axis=1)
+
+X_test = df.loc[df["spk"].isin(test_speakers)]
+y_test = X_test["y"]
+X_test = X_test.drop(["spk", "y"], axis=1)
+
+print("X train shape", X_train.shape)
+print("X test shape", X_test.shape)
+
+print("y train shape", y_train.shape)
+print("y test shape", y_test.shape)
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+no_pca_lda(cv)
+only_lda(cv)
+
+for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
+    only_pca(cv, n)
+
+for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
+    pca_lda(cv, n)

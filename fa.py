@@ -45,6 +45,21 @@ def agregate(df, feature):
     
     return ret
 
+def temporal_agregate(df, feature):
+    name_mean = "d_" + feature + "_mean"
+    name_std =  "d_" + feature + "_std"
+    name_max =  "d_" + feature + "_max"
+    name_min =  "d_" + feature + "_min"
+
+    ret = {
+            name_mean: df[feature].mean(),
+            name_std: df[feature].std(),
+            name_max: df[feature].max(),
+            name_min: df[feature].min()
+    }
+    
+    return ret
+
 def interpolate(df, feature):
     f_old = df[feature]
     x_old = np.linspace(0, 1, len(df))
@@ -73,13 +88,25 @@ def timed(df, feature):
 
     return ret
 
+def temporal_timed(df, feature):
+    ret = {}
+
+    name_max = feature + "_tmax"
+    name_min = feature + "_tmin"
+
+    ret[name_max] = df[feature].idxmax() / len(df)
+    ret[name_min] = df[feature].idxmin() / len(df)
+
+    return ret
 
 def agregate_features(csv_path: str, label: int, spk: int):
     df = pd.read_csv(csv_path)
+    d_df = df[geometric_features].diff().fillna(0)
     ret = {}
 
     for feature in geometric_features:
         ret.update(agregate(df, feature))
+        ret.update(temporal_agregate(d_df, feature))
     
     ret["y"] = label
     ret["spk"] = spk
@@ -100,6 +127,7 @@ def interpolate_features(csv_path: str, label: int, spk: int):
 
 def time_features(csv_path: str, label: int, spk: int):
     df = pd.read_csv(csv_path)
+    d_df = df[geometric_features].diff().fillna(0)
     ret = {}
 
     for feature in geometric_features:
