@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 import matplotlib.pyplot as plt
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.pipeline import Pipeline
@@ -16,12 +16,11 @@ words = ["nula", "jedan", "dva", "tri", "četiri", "pet",
          "ponedeljak", "utorak", "sreda", "četvrtak", "petak", "subota", "nedelja"]
 
 RF_PARAM_DIST = {
-    "rf__n_estimators":      [100, 200, 300, 500],
-    "rf__max_depth":         [3, 5, 7, 10, 15, 20, None],
-    "rf__min_samples_split": [2, 5, 10, 20],
-    "rf__min_samples_leaf":  [1, 2, 4, 8],
-    "rf__max_features":      ["sqrt", "log2", 0.3, 0.5, 0.8],
-    "rf__class_weight":      [None, "balanced"],
+    "rf__n_estimators":      [300, 500],
+    "rf__max_depth":         [5, 7, None],
+    "rf__min_samples_split": [5, 7, 10],
+    "rf__min_samples_leaf":  [4, 8],
+    "rf__max_features":      ["sqrt", "log2"],
 }
 
 def print_feature_importance(rf_model, X):
@@ -38,15 +37,12 @@ def no_pca_lda(cv):
         ("rf", RandomForestClassifier(random_state=42))
         ])
     
-    search = RandomizedSearchCV(
+    search = GridSearchCV(
         pipe,
         RF_PARAM_DIST,
-        n_iter=30,
         cv=cv,
         scoring="accuracy",
-        random_state=42,
         n_jobs=-1,
-        verbose=1
     )
     search.fit(X_train, y_train)
     
@@ -69,15 +65,12 @@ def only_lda(cv):
         ("rf", RandomForestClassifier(random_state=42))
         ])
     
-    search = RandomizedSearchCV(
+    search = GridSearchCV(
         pipe,
         RF_PARAM_DIST,
-        n_iter=30,
         cv=cv,
         scoring="accuracy",
-        random_state=42,
         n_jobs=-1,
-        verbose=1
     )
     search.fit(X_train, y_train)
     
@@ -100,15 +93,12 @@ def only_pca(cv, n):
         ("rf", RandomForestClassifier(random_state=42))
         ])
     
-    search = RandomizedSearchCV(
+    search = GridSearchCV(
         pipe,
         RF_PARAM_DIST,
-        n_iter=30,
         cv=cv,
         scoring="accuracy",
-        random_state=42,
         n_jobs=-1,
-        verbose=1
     )
     search.fit(X_train, y_train)
     
@@ -132,15 +122,12 @@ def pca_lda(cv, n):
         ("rf", RandomForestClassifier(random_state=42))
         ])
     
-    search = RandomizedSearchCV(
+    search = GridSearchCV(
         pipe,
         RF_PARAM_DIST,
-        n_iter=30,
         cv=cv,
         scoring="accuracy",
-        random_state=42,
         n_jobs=-1,
-        verbose=1
     )
     search.fit(X_train, y_train)
     
@@ -158,14 +145,12 @@ def pca_lda(cv, n):
 
 test_speakers = [4, 8, 14, 26, 28]
 
-df_agregated = pd.read_csv('geometric_agregated.csv')
-df_interp = pd.read_csv('geometric_interp.csv')
-df_interp = df_interp.drop(["y", "spk"], axis=1)
 df_timed = pd.read_csv('geometric_timed.csv')
 df_timed = df_timed.drop(["y", "spk"], axis=1)
 
-df = pd.concat([df_interp, df_agregated, df_timed], axis=1)
+pca_df = pd.read_csv('features_pca.csv')
 
+df = pd.concat([df_timed, pca_df], axis=1)
 
 X_train = df.loc[~df["spk"].isin(test_speakers)]
 y_train = X_train["y"]
@@ -186,7 +171,7 @@ cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 no_pca_lda(cv)
 only_lda(cv)
 
-for n in [0.8, 0.85, 0.9, 0.95, 0.98,  0.99]:
+for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
     only_pca(cv, n)
 
 for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:

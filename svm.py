@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 SVM_PARAMS = {
-        "svm__C": [0.1, 1.0, 10, 100],
+        "svm__C": [0.001, 0.1, 1.0, 10, 20, 50, 100],
         "svm__kernel": ['linear', 'rbf'],
         "svm__gamma": ['scale', 'auto', 0.1],
         }

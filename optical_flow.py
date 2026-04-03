@@ -29,6 +29,8 @@ def get_row(video_path: str, roi_path: str, label, spk):
     prev = prev[y:y+h, x:x+w]
     prev = cv.resize(prev, CROP_SIZE)
 
+    id_max = 0
+    mag_max = 0
     while video.isOpened():
         ret, frame = video.read()
         if not ret:
@@ -45,12 +47,23 @@ def get_row(video_path: str, roi_path: str, label, spk):
         flow = cv.calcOpticalFlowFarneback(prev, grayscale, None, 0.5, 3, 15, 3, 5, 1.2, 0)
         mag, ang = cv.cartToPolar(flow[..., 0], flow[..., 1])
 
-        features = np.array([mag.mean(), 
-                             mag.std(), 
-                             mag.max(), 
-                             flow[..., 0].mean(),
-                             flow[..., 1].mean(),
-                             ang.std()])
+        #pomeraj
+        #mean za gornji deo usne
+        f1 = mag[:48, :64].mean()
+        #mean za donji deo usne
+        f2 = mag[48:, :64].mean()
+
+        #uglovi
+        #mean za gornji deo usne
+        a1 = ang[:48, :64].std()
+        #mean za donji deo usne
+        a2 = ang[48:, :64].std()
+
+        if abs(mag.mean()) > mag_max:
+            mag_max = abs(mag.mean())
+            id_max = idx
+
+        features = np.array([f1, f2, a1, a2])
 
         flow_features.append(features)
 
@@ -65,16 +78,17 @@ def get_row(video_path: str, roi_path: str, label, spk):
 
     ret_row = {}
 
-    for i in range(6):
+    for i in range(4):
         f_old = flow_features[:, i]
         f_new = np.interp(x_new, x_old, f_old)
 
         idx = 0
-        for f_val in f_new:
-            name = "flow_" + str(i) + "_t" + str(idx)
-            ret_row[name] = f_val
-            idx += 1
+        #for f_val in f_new:
+        #    name = "flow_" + str(i) + "_t" + str(idx)
+        #    ret_row[name] = f_val
+        #    idx += 1
 
+    ret_row["mag_maxt"] = id_max / len(flow_features)
     ret_row["y"] = label
     ret_row["spk"] = spk
     return ret_row
