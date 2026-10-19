@@ -139,7 +139,6 @@ def time_features(csv_path: str, label: int, spk: int):
 
     return ret
 
-
 PER_FRAME_DIR = "./per_frame_features/"
 
 per_frame_features = sorted(os.listdir(PER_FRAME_DIR))
@@ -150,17 +149,17 @@ X_timed = []
 for frame_features in per_frame_features:
     #print(frame_features)
     csv_path = os.path.join(PER_FRAME_DIR, frame_features)
-    X_agregated.append(agregate_features(csv_path, i % 30, i // 30 + 1))
-    X_interp.append(interpolate_features(csv_path, i % 30, i // 30 + 1))
+    #X_agregated.append(agregate_features(csv_path, i % 30, i // 30 + 1))
+    #X_interp.append(interpolate_features(csv_path, i % 30, i // 30 + 1))
     X_timed.append(time_features(csv_path, i % 30, i // 30 + 1))
 
     i += 1
 
-df = pd.DataFrame(X_agregated)
-df.to_csv('geometric_agregated.csv', index=False)
+#df = pd.DataFrame(X_agregated)
+#df.to_csv('geometric_agregated.csv', index=False)
 
-df_interp = pd.DataFrame(X_interp)
-df_interp.to_csv('geometric_interp.csv', index=False)
+#df_interp = pd.DataFrame(X_interp)
+#df_interp.to_csv('geometric_interp.csv', index=False)
 
 df_timed = pd.DataFrame(X_timed)
 df_timed.to_csv('geometric_timed.csv', index=False)

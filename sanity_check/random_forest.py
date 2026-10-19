@@ -1,34 +1,52 @@
-from sklearn.neighbors import KNeighborsClassifier
 import pandas as pd
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, ConfusionMatrixDisplay, confusion_matrix, precision_score, f1_score, classification_report
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
+import matplotlib.pyplot as plt
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline
 
-KNN_PARAMS = {
-        "knn__n_neighbors": [5, 10, 15, 25],
-        "knn__weights": ['uniform', 'distance'],
-        "knn__metric": ['euclidean', 'manhattan', 'cosine'],
-        }
+words = ["nula", "jedan", "dva", "tri", "četiri", "pet",
+         "šest", "sedam", "osam", "devet",
+         "napred", "nazad", "levo", "desno", "gore", "dole",
+         "potvrdi", "odustani", "obriši", "pošalji", "dalje", "početak", "kraj",
+         "ponedeljak", "utorak", "sreda", "četvrtak", "petak", "subota", "nedelja"]
+
+RF_PARAM_DIST = {
+    "rf__n_estimators":      [300, 500],
+    "rf__max_depth":         [5, 7, None],
+    "rf__min_samples_split": [5, 7, 10],
+    "rf__min_samples_leaf":  [4, 8],
+    "rf__max_features":      ["sqrt", "log2"],
+}
+
+def print_feature_importance(rf_model, X):
+    importances = rf_model.feature_importances_
+    feature_names = X.columns
+    
+    feature_importance_df = pd.DataFrame({'Feature': feature_names, 'Importance': importances})
+    feature_importance_df = feature_importance_df.sort_values(by='Importance', ascending=False)
+    print(feature_importance_df)
 
 def no_pca_lda(cv):
     pipe = Pipeline([
-         ("scale", StandardScaler()),
-         ("knn", KNeighborsClassifier())
-    ])
+        ("scaler", StandardScaler()),
+        ("rf", RandomForestClassifier(random_state=42))
+        ])
+    
     search = GridSearchCV(
-            pipe,
-            KNN_PARAMS,
-            scoring = 'accuracy',
-            n_jobs=-1,
-            cv=cv
-        )
+        pipe,
+        RF_PARAM_DIST,
+        cv=cv,
+        scoring="accuracy",
+        n_jobs=-1,
+    )
     search.fit(X_train, y_train)
     
-    print("\nSamo StandardScaler")
+    print("Samo StandardScaler")
     print(f"Best parameters: {search.best_params_}")
     print(f"Best CV accuracy: {search.best_score_:.4f}")
     
@@ -42,20 +60,21 @@ def no_pca_lda(cv):
 
 def only_lda(cv):
     pipe = Pipeline([
-         ("scale", StandardScaler()),
-         ("lda", LinearDiscriminantAnalysis()),
-         ("knn", KNeighborsClassifier())
-    ])
+        ("scaler", StandardScaler()),
+        ("lda", LinearDiscriminantAnalysis()),
+        ("rf", RandomForestClassifier(random_state=42))
+        ])
+    
     search = GridSearchCV(
-            pipe,
-            KNN_PARAMS,
-            scoring = 'accuracy',
-            n_jobs=-1,
-            cv=cv
-        )
+        pipe,
+        RF_PARAM_DIST,
+        cv=cv,
+        scoring="accuracy",
+        n_jobs=-1,
+    )
     search.fit(X_train, y_train)
     
-    print("\nSamo LDA")
+    print("Samo LDA")
     print(f"Best parameters: {search.best_params_}")
     print(f"Best CV accuracy: {search.best_score_:.4f}")
     
@@ -69,17 +88,18 @@ def only_lda(cv):
 
 def only_pca(cv, n):
     pipe = Pipeline([
-         ("scale", StandardScaler()),
-         ("pca", PCA(n_components=n, whiten=True)),
-         ("knn", KNeighborsClassifier())
-    ])
+        ("scaler", StandardScaler()),
+        ("pca", PCA(n_components=n)),
+        ("rf", RandomForestClassifier(random_state=42))
+        ])
+    
     search = GridSearchCV(
-            pipe,
-            KNN_PARAMS,
-            scoring = 'accuracy',
-            n_jobs=-1,
-            cv=cv
-        )
+        pipe,
+        RF_PARAM_DIST,
+        cv=cv,
+        scoring="accuracy",
+        n_jobs=-1,
+    )
     search.fit(X_train, y_train)
     
     print("\nPCA:", n)
@@ -96,18 +116,19 @@ def only_pca(cv, n):
 
 def pca_lda(cv, n):
     pipe = Pipeline([
-         ("scale", StandardScaler()),
-         ("pca", PCA(n_components=n, whiten=True)),
-         ("lda", LinearDiscriminantAnalysis()),
-         ("knn", KNeighborsClassifier())
-    ])
+        ("scaler", StandardScaler()),
+        ("pca", PCA(n_components=n)),
+        ("lda", LinearDiscriminantAnalysis()),
+        ("rf", RandomForestClassifier(random_state=42))
+        ])
+    
     search = GridSearchCV(
-            pipe,
-            KNN_PARAMS,
-            scoring = 'accuracy',
-            n_jobs=-1,
-            cv=cv
-        )
+        pipe,
+        RF_PARAM_DIST,
+        cv=cv,
+        scoring="accuracy",
+        n_jobs=-1,
+    )
     search.fit(X_train, y_train)
     
     print("\nPCA:", n)
@@ -147,11 +168,34 @@ print("y test shape", y_test.shape)
 
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-no_pca_lda(cv)
-only_lda(cv)
+#no_pca_lda(cv)
+#only_lda(cv)
+#
+#for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
+#    only_pca(cv, n)
+#
+#for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
+#    pca_lda(cv, n)
 
-for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
-    only_pca(cv, n)
+#print_feature_importance(best_rf.named_steps['rf'], X_train)
+pipe = Pipeline([
+        ("scaler", StandardScaler()),
+        ("pca", PCA(n_components=0.98)),
+        ("lda", LinearDiscriminantAnalysis()),
+        ("rf", RandomForestClassifier(random_state=42))
+        ])
+    
+search = GridSearchCV(
+        pipe,
+        RF_PARAM_DIST,
+        cv=cv,
+        scoring="accuracy",
+        n_jobs=-1,
+    )
+search.fit(X_train, y_train)
 
-for n in [0.8, 0.85, 0.9, 0.95, 0.98, 0.99]:
-    pca_lda(cv, n)
+best_rf = search.best_estimator_
+y_pred  = best_rf.predict(X_test)
+
+print("\nClassification Report:\n")
+print(classification_report(y_test, y_pred, target_names=words))
